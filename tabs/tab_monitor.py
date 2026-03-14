@@ -159,9 +159,17 @@ def render(broker, ticker, ma_period, interval_label="일봉 (1D)"):
                     eval_amt = amount * price
                     total_eval += eval_amt
                     
+                    if not is_stock(curr):
+                        amt_str = f"{amount:,.8f}"
+                        if "." in amt_str:
+                            amt_str = amt_str.rstrip("0").rstrip(".")
+                        display_amount = f"{amt_str} {unit}"
+                    else:
+                        display_amount = f"{amount:,.0f} {unit}"
+
                     rows.append({
                         "자산": name,
-                        "보유량": f"{amount:,.2f}" if not is_stock(curr) else f"{amount:,.0f}{unit}",
+                        "보유량": display_amount,
                         "평가금액": f"{eval_amt:,.0f}원" if price > 0 else "-"
                     })
             

@@ -32,8 +32,8 @@ def get_ticker_display(ticker: str) -> str:
 
 
 def is_stock(ticker: str) -> bool:
-    """주식 종목인지 여부 (KRW-로 시작하지 않으면 주식)"""
-    return not ticker.startswith("KRW-")
+    """주식 종목인지 여부 (한국투자증권의 코드는 6자리 숫자)"""
+    return str(ticker).isdigit()
 
 
 def setup_logger(log_file="trade.log"):
