@@ -67,6 +67,5 @@ def render():
 
     for entry in logs:
         icon = level_colors.get(entry["level"], "⚪")
-        st.markdown(
-            f"`{entry['time']}` {icon} **[{entry['level']}]** {entry['message']}"
-        )
+        # Use st.text to guarantee monospaced, non-overlapping lines which is safer for raw text
+        st.text(f"[{entry['time']}] {icon} [{entry['level']}] {entry['message']}")
