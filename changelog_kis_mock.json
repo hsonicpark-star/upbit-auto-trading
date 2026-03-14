@@ -1,0 +1,72 @@
+[
+  {
+    "time": "2026-03-07 14:02",
+    "feature_id": "strategy_vb",
+    "old": "⏳ 대기",
+    "new": "🏁 작업완료",
+    "note": "변동성 돌파 전략 제거 — 사용자 요청으로 strategy.py에서 get_target_price, check_buy_signal 함수 삭제"
+  },
+  {
+    "time": "2026-03-07 14:02",
+    "feature_id": "strategy_ma",
+    "old": "⏳ 대기",
+    "new": "✅ 정상",
+    "note": "이동평균선 전략 전면 개편 — 골든/데드크로스 감지, check_ma_signal 추가"
+  },
+  {
+    "time": "2026-03-07 14:02",
+    "feature_id": "dashboard",
+    "old": "⏳ 대기",
+    "new": "✅ 정상",
+    "note": "모니터링 탭 재작성 — Plotly 캔들차트 + MA 라인 + 전략 계산 테이블 + 잔고 현황"
+  },
+  {
+    "time": "2026-03-07 14:07",
+    "feature_id": "ohlcv_query",
+    "old": "⏳ 대기",
+    "new": "✅ 정상",
+    "note": "MA 라인 끊김 수정 — display_count + max(MA period) 만큼 fetch 후 마지막 N개만 표시 (warm-up 처리)"
+  },
+  {
+    "time": "2026-03-07 14:07",
+    "feature_id": "ohlcv_query",
+    "old": "✅ 정상",
+    "new": "✅ 정상",
+    "note": "4시간봉(minute240) 지원 추가 — INTERVAL_MAP 도입, 사이드바 라디오 버튼으로 봉 단위 선택"
+  },
+  {
+    "time": "2026-03-07 14:11",
+    "feature_id": "dashboard",
+    "old": "✅ 정상",
+    "new": "✅ 정상",
+    "note": "사이드바 캔들 단위 이동 + 차트 MA 멀티셀렉트 추가 (MA5/10/20/60/120 중 선택 표시, 전략 MA는 ★굵은 점선)"
+  },
+  {
+    "time": "2026-03-07 14:19",
+    "feature_id": "manual_order",
+    "old": "✅ 정상",
+    "new": "✅ 정상",
+    "note": "수동주문 탭 개편 — 지정가/시장가 실제 주문 활성화, 안전 체크박스 추가, 미체결 주문 현황 + 취소 버튼 추가"
+  },
+  {
+    "time": "2026-03-07 14:19",
+    "feature_id": "reserve_order",
+    "old": "⏳ 대기",
+    "new": "✅ 정상",
+    "note": "거래내역 탭(tab_history.py) 신규 추가 — 체결 내역(done/cancel), 입금 내역, 출금 내역 3개 서브탭"
+  },
+  {
+    "time": "2026-03-07 14:30",
+    "feature_id": "dashboard",
+    "old": "✅ 정상",
+    "new": "✅ 정상",
+    "note": "성능 최적화 — app.py 전역 time.sleep(10) 제거. 3단계 캐시 적용: OHLCV 300s / MA값 60s / 현재가 10s"
+  },
+  {
+    "time": "2026-03-07 14:32",
+    "feature_id": "strategy_ma",
+    "old": "✅ 정상",
+    "new": "✅ 정상",
+    "note": "미완성 봉 제외 — get_ohlcv_with_ma: iloc[-(n+1):-1], get_ma_value: iloc[-2] 기준으로 완성된 봉만 MA 계산"
+  }
+]

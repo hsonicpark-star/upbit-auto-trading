@@ -1,0 +1,79 @@
+[
+    {
+        "time": "2026-03-07 14:02",
+        "feature_id": "strategy_vb",
+        "old": "\u23f3 \ub300\uae30",
+        "new": "\ud83c\udfc1 \uc791\uc5c5\uc644\ub8cc",
+        "note": "\ubcc0\ub3d9\uc131 \ub3cc\ud30c \uc804\ub7b5 \uc81c\uac70 \u2014 \uc0ac\uc6a9\uc790 \uc694\uccad\uc73c\ub85c strategy.py\uc5d0\uc11c get_target_price, check_buy_signal \ud568\uc218 \uc0ad\uc81c"
+    },
+    {
+        "time": "2026-03-07 14:02",
+        "feature_id": "strategy_ma",
+        "old": "\u23f3 \ub300\uae30",
+        "new": "\u2705 \uc815\uc0c1",
+        "note": "\uc774\ub3d9\ud3c9\uade0\uc120 \uc804\ub7b5 \uc804\uba74 \uac1c\ud3b8 \u2014 \uace8\ub4e0/\ub370\ub4dc\ud06c\ub85c\uc2a4 \uac10\uc9c0, check_ma_signal \ucd94\uac00"
+    },
+    {
+        "time": "2026-03-07 14:02",
+        "feature_id": "dashboard",
+        "old": "\u23f3 \ub300\uae30",
+        "new": "\u2705 \uc815\uc0c1",
+        "note": "\ubaa8\ub2c8\ud130\ub9c1 \ud0ed \uc7ac\uc791\uc131 \u2014 Plotly \uce94\ub4e4\ucc28\ud2b8 + MA \ub77c\uc778 + \uc804\ub7b5 \uacc4\uc0b0 \ud14c\uc774\ube14 + \uc794\uace0 \ud604\ud669"
+    },
+    {
+        "time": "2026-03-07 14:07",
+        "feature_id": "ohlcv_query",
+        "old": "\u23f3 \ub300\uae30",
+        "new": "\u2705 \uc815\uc0c1",
+        "note": "MA \ub77c\uc778 \ub04a\uae40 \uc218\uc815 \u2014 display_count + max(MA period) \ub9cc\ud07c fetch \ud6c4 \ub9c8\uc9c0\ub9c9 N\uac1c\ub9cc \ud45c\uc2dc (warm-up \ucc98\ub9ac)"
+    },
+    {
+        "time": "2026-03-07 14:07",
+        "feature_id": "ohlcv_query",
+        "old": "\u2705 \uc815\uc0c1",
+        "new": "\u2705 \uc815\uc0c1",
+        "note": "4\uc2dc\uac04\ubd09(minute240) \uc9c0\uc6d0 \ucd94\uac00 \u2014 INTERVAL_MAP \ub3c4\uc785, \uc0ac\uc774\ub4dc\ubc14 \ub77c\ub514\uc624 \ubc84\ud2bc\uc73c\ub85c \ubd09 \ub2e8\uc704 \uc120\ud0dd"
+    },
+    {
+        "time": "2026-03-07 14:11",
+        "feature_id": "dashboard",
+        "old": "\u2705 \uc815\uc0c1",
+        "new": "\u2705 \uc815\uc0c1",
+        "note": "\uc0ac\uc774\ub4dc\ubc14 \uce94\ub4e4 \ub2e8\uc704 \uc774\ub3d9 + \ucc28\ud2b8 MA \uba40\ud2f0\uc140\ub799\ud2b8 \ucd94\uac00 (MA5/10/20/60/120 \uc911 \uc120\ud0dd \ud45c\uc2dc, \uc804\ub7b5 MA\ub294 \u2605\uad35\uc740 \uc810\uc120)"
+    },
+    {
+        "time": "2026-03-07 14:19",
+        "feature_id": "manual_order",
+        "old": "\u2705 \uc815\uc0c1",
+        "new": "\u2705 \uc815\uc0c1",
+        "note": "\uc218\ub3d9\uc8fc\ubb38 \ud0ed \uac1c\ud3b8 \u2014 \uc9c0\uc815\uac00/\uc2dc\uc7a5\uac00 \uc2e4\uc81c \uc8fc\ubb38 \ud65c\uc131\ud654, \uc548\uc804 \uccb4\ud06c\ubc15\uc2a4 \ucd94\uac00, \ubbf8\uccb4\uacb0 \uc8fc\ubb38 \ud604\ud669 + \ucde8\uc18c \ubc84\ud2bc \ucd94\uac00"
+    },
+    {
+        "time": "2026-03-07 14:19",
+        "feature_id": "dashboard",
+        "old": "\u2705 \uc815\uc0c1",
+        "new": "\u2705 \uc815\uc0c1",
+        "note": "\uac70\ub798\ub0b4\uc5ed \ud0ed(tab_history.py) \uc2e0\uaddc \ucd94\uac00 \u2014 \uccb4\uacb0 \ub0b4\uc5ed(done/cancel), \uc785\uae08 \ub0b4\uc5ed, \ucd9c\uae08 \ub0b4\uc5ed 3\uac1c \uc11c\ube0c\ud0ed"
+    },
+    {
+        "time": "2026-03-07 14:30",
+        "feature_id": "dashboard",
+        "old": "\u2705 \uc815\uc0c1",
+        "new": "\u2705 \uc815\uc0c1",
+        "note": "\uc131\ub2a5 \ucd5c\uc801\ud654 \u2014 app.py \uc804\uc5ed time.sleep(10) \uc81c\uac70. 3\ub2e8\uacc4 \uce90\uc2dc: OHLCV 300s / MA\uac12 60s / \ud604\uc7acgap 10s"
+    },
+    {
+        "time": "2026-03-07 14:32",
+        "feature_id": "strategy_ma",
+        "old": "\u2705 \uc815\uc0c1",
+        "new": "\u2705 \uc815\uc0c1",
+        "note": "\ubbf8\uc644\uc131 \ubd09 \uc81c\uc678 \u2014 get_ohlcv_with_ma: iloc[-(n+1):-1], get_ma_value: iloc[-2] \uae30\uc900\uc73c\ub85c \uc644\uc131\ub41c \ubd09\ub9cc MA \uacc4\uc0b0"
+    },
+    {
+        "time": "2026-03-07 14:35",
+        "feature_id": "dashboard",
+        "old": "\u2705 \uc815\uc0c1",
+        "new": "\u2705 \uc815\uc0c1",
+        "note": "\uc218\uc815 \ub0b4\uc5ed \uc601\uc18d\ud654 \u2014 changelog.json \ud30c\uc77c \uc5f0\ub3d9. \uc0c1\ud0dc \ubcc0\uacbd \uc2dc \ud30c\uc77c\uc5d0 \uc790\ub3d9 \uae30\ub85d, \uc571 \uc7ac\uc2dc\uc791 \ud6c4\uc5d0\ub3c4 \uc720\uc9c0\ub428"
+    }
+]
