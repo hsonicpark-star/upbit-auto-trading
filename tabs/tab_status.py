@@ -71,6 +71,7 @@ INITIAL_STATUS = {
     "reserve_order": "✅ 정상",
     "log_system":    "✅ 정상",
     "dashboard":     "✅ 정상",
+    "trade_history": "✅ 정상",
 }
 
 STATUS_OPTIONS = ["⏳ 대기", "✅ 정상", "❌ 오류", "🔧 수정중", "🏁 작업완료"]
