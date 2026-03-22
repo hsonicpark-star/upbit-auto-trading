@@ -19,11 +19,11 @@ class BrokerKIS:
         self.token_expired_at = 0
         
         # 계좌번호 포맷 강제 ('-01'이 없으면 추가)
-        if "-" not in self.account_number:
+        if self.account_number and "-" not in self.account_number:
             self.account_number += "-01"
-            
-        self._acc_no_prefix = self.account_number.split("-")[0]
-        self._acc_no_postfix = self.account_number.split("-")[1]
+
+        self._acc_no_prefix  = self.account_number.split("-")[0] if self.account_number else ""
+        self._acc_no_postfix = self.account_number.split("-")[1] if self.account_number and "-" in self.account_number else ""
         
     def _get_token(self):
         now = time.time()
