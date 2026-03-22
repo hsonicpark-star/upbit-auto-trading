@@ -403,6 +403,169 @@ class BrokerKIS:
     def sell_limit_order(self, ticker, price, volume):
         return self._order(ticker, price, volume, "ask", "limit")
 
+    # ── 국내주식 호가 단위 ─────────────────────────────────────────────────
+    @staticmethod
+    def round_domestic_price(price: float) -> int:
+        """국내주식 KRX 호가 단위 적용"""
+        if price < 2_000:      unit = 1
+        elif price < 5_000:    unit = 5
+        elif price < 20_000:   unit = 10
+        elif price < 50_000:   unit = 50
+        elif price < 200_000:  unit = 100
+        elif price < 500_000:  unit = 500
+        else:                  unit = 1_000
+        return int(round(price / unit) * unit)
+
+    @staticmethod
+    def round_overseas_price(price: float) -> float:
+        """해외주식 호가 단위 (USD 0.01)"""
+        return round(price, 2)
+
+    @staticmethod
+    def min_order_qty_domestic() -> int:
+        """국내주식 최소 주문 수량 (1주)"""
+        return 1
+
+    # ── 해외주식 현재가 ────────────────────────────────────────────────────
+    def get_overseas_price(self, symbol: str, exchange: str = "AMS") -> float:
+        """해외주식 현재가 조회"""
+        url     = f"{self.base_url}/uapi/overseas-price/v1/quotations/price"
+        headers = self._headers("HHDFS00000300")
+        params  = {"AUTH": "", "EXCD": exchange, "SYMB": symbol}
+
+        try:
+            res = requests.get(url, headers=headers, params=params, timeout=10)
+            if res.status_code == 200:
+                data = res.json()
+                if data.get("rt_cd") == "0":
+                    return float(data.get("output", {}).get("last", 0))
+        except Exception as e:
+            logging.error(f"KIS Overseas Price Error [{symbol}]: {e}")
+        return 0.0
+
+    # ── 해외주식 OHLCV ────────────────────────────────────────────────────
+    def get_overseas_ohlcv(self, symbol: str, exchange: str = "AMS", count: int = 260) -> pd.DataFrame:
+        """해외주식 일별 OHLCV 조회"""
+        from datetime import timedelta
+        url     = f"{self.base_url}/uapi/overseas-price/v1/quotations/dailyprice"
+        headers = self._headers("HHDFS76240000")
+
+        end_dt = datetime.now()
+        params = {
+            "AUTH": "",
+            "EXCD": exchange,
+            "SYMB": symbol,
+            "GUBN": "0",
+            "BYMD": end_dt.strftime("%Y%m%d"),
+            "MODP": "1",
+        }
+
+        try:
+            res = requests.get(url, headers=headers, params=params, timeout=10)
+            if res.status_code == 200:
+                data    = res.json()
+                output2 = data.get("output2", [])
+                if not output2:
+                    return pd.DataFrame()
+
+                df = pd.DataFrame(output2)
+                df = df.rename(columns={"xymd": "date", "clos": "close", "tvol": "volume"})
+                for col in ["open", "high", "low", "close", "volume"]:
+                    if col in df.columns:
+                        df[col] = pd.to_numeric(df[col], errors="coerce")
+                if "date" in df.columns:
+                    df["date"] = pd.to_datetime(df["date"], format="%Y%m%d", errors="coerce")
+                    df = df.dropna(subset=["date"]).set_index("date").sort_index()
+                return df.tail(count)
+        except Exception as e:
+            logging.error(f"KIS Overseas OHLCV Error [{symbol}]: {e}")
+        return pd.DataFrame()
+
+    # ── 해외주식 잔고 ─────────────────────────────────────────────────────
+    def get_overseas_balances(self) -> dict:
+        """해외주식 잔고 조회 (전체 거래소)"""
+        url   = f"{self.base_url}/uapi/overseas-stock/v1/trading/inquire-balance"
+        tr_id = "VTTS3012R" if self.mock else "TTTS3012R"
+
+        all_holdings = []
+        usd_balance  = 0.0
+
+        for excd in ["NASD", "NYSE", "AMEX"]:
+            params  = {
+                "CANO":             self._acc_no_prefix,
+                "ACNT_PRDT_CD":     self._acc_no_postfix,
+                "OVRS_EXCG_CD":     excd,
+                "TR_CRCY_CD":       "USD",
+                "CTX_AREA_FK200":   "",
+                "CTX_AREA_NK200":   "",
+            }
+            headers = self._headers(tr_id)
+            try:
+                res = requests.get(url, headers=headers, params=params, timeout=10)
+                if res.status_code == 200:
+                    data = res.json()
+                    if data.get("rt_cd") == "0":
+                        output2 = data.get("output2", {})
+                        if isinstance(output2, list) and output2:
+                            output2 = output2[0]
+                        usd_balance = max(usd_balance, float(output2.get("frcr_dncl_amt_2", 0)))
+                        for item in data.get("output1", []):
+                            qty = float(item.get("cblc_qty", 0))
+                            if qty > 0:
+                                all_holdings.append({
+                                    "symbol":        item.get("ovrs_pdno", ""),
+                                    "quantity":      qty,
+                                    "avg_price":     float(item.get("pchs_avg_pric", 0)),
+                                    "current_price": float(item.get("now_pric2", 0)),
+                                    "eval_amount":   float(item.get("evlu_amt", 0)),
+                                })
+            except Exception as e:
+                logging.error(f"KIS Overseas Balance Error [{excd}]: {e}")
+            time.sleep(0.1)
+
+        return {"usd_balance": usd_balance, "holdings": all_holdings}
+
+    # ── 해외주식 주문 ─────────────────────────────────────────────────────
+    def _overseas_order(self, symbol: str, price: float, volume: int,
+                        side: str, exchange: str = "AMEX") -> dict | None:
+        """해외주식 지정가 주문"""
+        if self.mock:
+            tr_id = "VTTT1002U" if side == "bid" else "VTTT1006U"
+        else:
+            tr_id = "TTTT1002U" if side == "bid" else "TTTT1006U"
+
+        url     = f"{self.base_url}/uapi/overseas-stock/v1/trading/order"
+        headers = self._headers(tr_id)
+        body    = {
+            "CANO":             self._acc_no_prefix,
+            "ACNT_PRDT_CD":     self._acc_no_postfix,
+            "OVRS_EXCG_CD":     exchange,
+            "PDNO":             symbol,
+            "ORD_DVSN":         "00",
+            "ORD_QTY":          str(int(volume)),
+            "OVRS_ORD_UNPR":    f"{self.round_overseas_price(price):.2f}",
+            "ORD_SVR_DVSN_CD":  "0",
+        }
+
+        try:
+            res = requests.post(url, headers=headers, json=body, timeout=10)
+            if res.status_code == 200:
+                data = res.json()
+                if data.get("rt_cd") == "0":
+                    return {"uuid": data.get("output", {}).get("ODNO"), "msg": data.get("msg1")}
+                logging.error(f"KIS Overseas Order Error: {data.get('msg1')}")
+        except Exception as e:
+            logging.error(f"KIS Overseas Order Exception: {e}")
+        return None
+
+    def buy_overseas(self, symbol: str, price: float, volume: int, exchange: str = "AMEX") -> dict | None:
+        """해외주식 지정가 매수"""
+        return self._overseas_order(symbol, price, int(volume), "bid", exchange)
+
+    def sell_overseas(self, symbol: str, price: float, volume: int, exchange: str = "AMEX") -> dict | None:
+        """해외주식 지정가 매도"""
+        return self._overseas_order(symbol, price, int(volume), "ask", exchange)
+
     def cancel_order(self, uuid):
         """주문취소/정정 (v1_국내주식-003)"""
         url = f"{self.base_url}/uapi/domestic-stock/v1/trading/order-rvsecncl"
