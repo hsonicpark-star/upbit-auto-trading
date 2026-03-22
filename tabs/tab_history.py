@@ -27,6 +27,8 @@ def _orders_to_df(orders, ticker=None):
     _is_stock = is_stock(ticker) if ticker else False
     rows = []
     for o in orders:
+        if not isinstance(o, dict):
+            continue
         side = "매수" if o.get("side") == "bid" else "매도"
         price = float(o.get("price") or 0)
         vol = float(o.get("executed_volume") or o.get("volume") or 0)
@@ -74,8 +76,8 @@ def render(broker):
         if df.empty:
             st.info("조회된 내역이 없습니다.")
         else:
-            done_orders = [o for o in orders if o.get("side") == "bid"]
-            sell_orders = [o for o in orders if o.get("side") == "ask"]
+            done_orders = [o for o in orders if isinstance(o, dict) and o.get("side") == "bid"]
+            sell_orders = [o for o in orders if isinstance(o, dict) and o.get("side") == "ask"]
             mc1, mc2, mc3 = st.columns(3)
             mc1.metric("전체 주문 수", len(orders))
             mc2.metric("매수 주문", len(done_orders))

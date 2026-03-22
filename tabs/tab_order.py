@@ -266,6 +266,8 @@ def render(broker, ticker=None):
         h3.markdown("**가격**"); h4.markdown("**총금액(KRW)**"); h5.markdown("**주문수량**"); h6.markdown("**잔여수량**"); h7.markdown("**취소**")
         st.divider()
         for order in pending:
+            if not isinstance(order, dict):
+                continue
             side_icon = "🟢 매수" if order.get("side") == "bid" else "🔴 매도"
             uuid      = order.get("uuid", "")
             market    = order.get("market", "")
