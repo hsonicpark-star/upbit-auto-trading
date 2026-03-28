@@ -552,6 +552,7 @@ def run_reserve_check():
     ensure_data_dir()
     orders = load_json(RESERVE_ORDERS_PATH)
     if not isinstance(orders, list) or not orders:
+        logger.info("예약주문 체크 완료 | 등록된 주문 없음")
         return
 
     access = os.getenv("UPBIT_ACCESS_KEY")
