@@ -1,0 +1,52 @@
+name: Auto Trade (Upbit)
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'   # 4시간마다 (UTC 기준, KST = UTC+9)
+  workflow_dispatch:          # GitHub UI에서 수동 실행 가능
+    inputs:
+      dry_run:
+        description: 'Dry run (true=테스트, false=실제주문)'
+        required: false
+        default: 'true'
+
+jobs:
+  trade:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run auto trade
+        env:
+          UPBIT_ACCESS_KEY: ${{ secrets.UPBIT_ACCESS_KEY }}
+          UPBIT_SECRET_KEY: ${{ secrets.UPBIT_SECRET_KEY }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+        run: python vm_trader.py --mode auto
+
+      - name: Commit and push result JSON files
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/balance_cache.json data/signal_state.json data/trade_log.json || true
+          git diff --cached --quiet || git commit -m "chore: update trading data [skip ci]"
+          git push

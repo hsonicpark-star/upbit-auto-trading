@@ -18,7 +18,7 @@ from broker_kis import BrokerKIS
 from ws_manager import ob_manager as upbit_ws_manager
 from kis_ws_manager import kis_ws_manager
 
-from tabs import tab_monitor, tab_log, tab_status, tab_connection, tab_order, tab_reserve, tab_history, tab_grid, tab_grid_backtest, tab_laa
+from tabs import tab_monitor, tab_log, tab_status, tab_connection, tab_order, tab_reserve, tab_history, tab_grid, tab_grid_backtest, tab_laa, tab_vm_status
 from utils import get_ticker_display
 
 # ── 환경 변수 로드 ─────────────────────────────────────────────────────
@@ -160,7 +160,7 @@ with st.sidebar.expander("📋 최근 실행 로그 (trade.log)", expanded=False
         st.error(f"로그 읽기 실패: {e}")
 
 # ── 탭 구성 ──────────────────────────────────────────────────────────────
-t1, t2, t3, t4, t5, t6, t7, t8, t9, t10 = st.tabs([
+t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11 = st.tabs([
     "📡 모니터링",
     "📋 로그",
     "📌 작업현황",
@@ -171,6 +171,7 @@ t1, t2, t3, t4, t5, t6, t7, t8, t9, t10 = st.tabs([
     "🔲 그리드매매",
     "📈 백테스트",
     "🌍 LAA 전략",
+    "🖥️ VM 현황",
 ])
 
 # ── @st.fragment 래퍼 ─────────────────────────────────────────────────────
@@ -218,6 +219,10 @@ def fragment_grid_backtest():
 def fragment_laa():
     tab_laa.render(broker)
 
+@st.fragment
+def fragment_vm_status():
+    tab_vm_status.render()
+
 # ── 탭별 fragment 호출 ────────────────────────────────────────────────────
 with t1:
     fragment_monitor()
@@ -239,3 +244,5 @@ with t9:
     fragment_grid_backtest()
 with t10:
     fragment_laa()
+with t11:
+    fragment_vm_status()
