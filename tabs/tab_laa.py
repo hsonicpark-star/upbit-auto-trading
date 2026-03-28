@@ -10,15 +10,11 @@ LAA (Lethargic Asset Allocation)
 """
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from datetime import datetime
 
 from strategy_laa import (
     LAA_ASSETS, REBALANCE_PERIODS, MOMENTUM_ASSETS, SAFE_ASSET,
-    get_laa_prices, compute_laa_signal, backtest_laa,
-    get_live_signal, compute_rebalance_orders,
+    backtest_laa, get_live_signal, compute_rebalance_orders,
 )
 
 
@@ -73,6 +69,29 @@ def _allocation_settings(key_prefix: str):
     return momentum_pct / 100, safe_pct / 100
 
 
+def _render_backtest_weights(key_prefix: str = "bt"):
+    """백테스트용 종목별 비중 설정 (현재가 없이 비중만)"""
+    st.markdown("**종목별 비중 설정 (합계 = 100%)**")
+    cols = st.columns(len(LAA_ASSETS))
+    weights = {}
+    for i, asset in enumerate(LAA_ASSETS):
+        with cols[i]:
+            is_safe = (asset == SAFE_ASSET)
+            label = f"{'🛡 ' if is_safe else ''}{asset}"
+            w = st.number_input(
+                label, value=25, min_value=0, max_value=100, step=5,
+                key=f"{key_prefix}_w_{asset}",
+            )
+            st.caption(LAA_ASSETS[asset]["name"])
+            weights[asset] = w
+    total_w = sum(weights.values())
+    if total_w != 100:
+        st.warning(f"⚠️ 비중 합계: {total_w}% (100%가 되어야 합니다)")
+    else:
+        st.success(f"✅ 비중 합계: {total_w}%")
+    return {a: w / 100 for a, w in weights.items() if w > 0}
+
+
 def _render_backtest():
     st.markdown("#### ⚙️ 백테스트 설정")
 
@@ -85,7 +104,22 @@ def _render_backtest():
         initial_usd = st.number_input("초기 자본 (USD)", value=10_000, step=1_000, min_value=1_000)
 
     period_months = REBALANCE_PERIODS[rebal_label]
-    bull_momentum_pct, bull_safe_pct = _allocation_settings("bt")
+
+    # ── 배분 모드 선택
+    st.divider()
+    mode = st.radio(
+        "배분 모드",
+        ["🎯 동적 LAA (캐너리 신호 + 모멘텀)", "📊 정적 배분 (비중 고정)"],
+        horizontal=True, key="bt_mode",
+    )
+
+    static_weights = None
+    bull_momentum_pct, bull_safe_pct = 0.75, 0.25
+
+    if mode.startswith("📊"):
+        static_weights = _render_backtest_weights("bt")
+    else:
+        bull_momentum_pct, bull_safe_pct = _allocation_settings("bt")
 
     if st.button("▶ 백테스트 실행", type="primary", key="laa_backtest_run"):
         with st.spinner("데이터 수집 및 시뮬레이션 중..."):
@@ -95,6 +129,7 @@ def _render_backtest():
                 period_months=period_months,
                 bull_momentum_pct=bull_momentum_pct,
                 bull_safe_pct=bull_safe_pct,
+                static_weights=static_weights,
             )
 
         if result is None:

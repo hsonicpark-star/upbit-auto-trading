@@ -119,14 +119,17 @@ def get_rebalance_dates(start: pd.Timestamp, end: pd.Timestamp, period_months: i
 
 # ── 백테스트 ─────────────────────────────────────────────────────────────
 def backtest_laa(
-    period_years:      int   = 5,
-    initial_capital:   float = 10_000_000,
-    period_months:     int   = 1,
-    bull_momentum_pct: float = 0.75,
-    bull_safe_pct:     float = 0.25,
+    period_years:      int        = 5,
+    initial_capital:   float      = 10_000_000,
+    period_months:     int        = 1,
+    bull_momentum_pct: float      = 0.75,
+    bull_safe_pct:     float      = 0.25,
+    static_weights:    dict | None = None,
 ) -> dict | None:
     """
     LAA 전략 백테스트.
+    static_weights: {"SPY": 0.25, "IWM": 0.25, ...} 형태로 전달 시
+                    신호 무관하게 항상 해당 비중으로 리밸런싱 (정적 배분 모드).
     initial_capital은 USD 기준 (yfinance 데이터 자체가 USD).
     """
     prices_all = get_laa_prices(period_years + 2)
@@ -159,11 +162,14 @@ def backtest_laa(
         is_rebal = any(prev_date < rd <= date for rd in rebal_dates) or date == prices_bt.index[0]
 
         if is_rebal:
-            canary, momentum, target = compute_laa_signal(
-                prices_all[prices_all.index <= date], date,
-                bull_momentum_pct=bull_momentum_pct,
-                bull_safe_pct=bull_safe_pct,
-            )
+            if static_weights:
+                target = static_weights
+            else:
+                _, _, target = compute_laa_signal(
+                    prices_all[prices_all.index <= date], date,
+                    bull_momentum_pct=bull_momentum_pct,
+                    bull_safe_pct=bull_safe_pct,
+                )
             if target:
                 current_target = target
 
