@@ -61,7 +61,7 @@ def _render_backtest():
 
     period_months = REBALANCE_PERIODS[rebal_label]
 
-    if st.button("▶ 백테스트 실행", type="primary"):
+    if st.button("▶ 백테스트 실행", type="primary", key="laa_backtest_run"):
         with st.spinner("데이터 수집 및 시뮬레이션 중..."):
             result = backtest_laa(
                 period_years=period_years,
