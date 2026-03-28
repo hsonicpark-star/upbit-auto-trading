@@ -85,11 +85,12 @@ def render():
                     rows.append({
                         "통화":       cur,
                         "보유량":     f"{bal:.8f}".rstrip("0").rstrip("."),
-                        "주문중":     f"{locked:.8f}".rstrip("0").rstrip(".") if locked else "-",
+                        "주문중":     f"{locked:.8f}".rstrip("0").rstrip(".") if locked > 0 else "-",
                         "평균 매수가": f"{avg:,.0f}" if avg else "-",
                     })
             if rows:
-                st.table(rows)
+                import pandas as pd
+                st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
             else:
                 st.info("보유 자산 없음")
         else:
