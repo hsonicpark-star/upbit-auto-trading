@@ -42,10 +42,11 @@ SMA_PERIOD    = 29           # 1D SMA 기간
 DATA_DIR      = Path(__file__).parent / "data"
 KST           = timezone(timedelta(hours=9))
 
-BALANCE_CACHE_PATH = DATA_DIR / "balance_cache.json"
-SIGNAL_STATE_PATH  = DATA_DIR / "signal_state.json"
-TRADE_LOG_PATH     = DATA_DIR / "trade_log.json"
-TRADE_LOG_CSV_PATH = DATA_DIR / "trade_log.csv"
+BALANCE_CACHE_PATH   = DATA_DIR / "balance_cache.json"
+SIGNAL_STATE_PATH    = DATA_DIR / "signal_state.json"
+TRADE_LOG_PATH       = DATA_DIR / "trade_log.json"
+TRADE_LOG_CSV_PATH   = DATA_DIR / "trade_log.csv"
+RESERVE_ORDERS_PATH  = DATA_DIR / "reserve_orders.json"
 BACKUP_DIR         = DATA_DIR / "backup"
 LOCK_FILE_PATH     = DATA_DIR / "vm_trader.lock"
 
@@ -513,10 +514,125 @@ def run_manual_order(side: str, ticker: str, amount: float):
     logger.info(f"수동 주문 결과: {result}")
 
 
+# ─── 예약주문 VM 실행 ─────────────────────────────────────────────────────
+def _exec_reserve_order(broker: BrokerUpbit, order: dict) -> tuple[bool, str]:
+    """단일 예약주문 실행 (VM에서만 호출)."""
+    ticker      = order["ticker"]
+    side        = order["side"]
+    order_type  = order.get("order_type", "시장가")
+    limit_price = float(order.get("limit_price") or 0)
+    amount      = float(order["amount"])
+    try:
+        if side == "매수":
+            if order_type == "지정가" and limit_price > 0:
+                qty    = amount / limit_price
+                result = broker.buy_limit_order(ticker, limit_price, qty)
+                label  = f"지정가매수 {ticker} {limit_price:,.0f}원×{qty:.6f}"
+            else:
+                result = broker.buy_market_order(ticker, amount)
+                label  = f"시장가매수 {ticker} {amount:,.0f}원"
+        else:
+            if order_type == "지정가" and limit_price > 0:
+                result = broker.sell_limit_order(ticker, limit_price, amount)
+                label  = f"지정가매도 {ticker} {limit_price:,.0f}원×{amount:.6f}"
+            else:
+                result = broker.sell_market_order(ticker, amount)
+                label  = f"시장가매도 {ticker} {amount:.6f}"
+
+        if result is None:
+            return False, "주문 거부 (잔고 부족 또는 최소금액 미달)"
+        uuid = result.get("uuid", "") if isinstance(result, dict) else ""
+        return True, f"✅ {label}" + (f" uuid={uuid[:8]}" if uuid else "")
+    except Exception as e:
+        return False, f"❌ 실행 오류: {e}"
+
+
+def run_reserve_check():
+    """예약주문 체크 및 실행 (cron 1분 주기 호출)."""
+    ensure_data_dir()
+    orders = load_json(RESERVE_ORDERS_PATH)
+    if not isinstance(orders, list) or not orders:
+        return
+
+    access = os.getenv("UPBIT_ACCESS_KEY")
+    secret = os.getenv("UPBIT_SECRET_KEY")
+    broker = BrokerUpbit(access, secret)
+
+    now     = datetime.now(KST).replace(tzinfo=None)  # naive로 비교
+    changed = False
+
+    for i, order in enumerate(orders):
+        if not order.get("active") or order.get("status") != "대기중":
+            continue
+
+        strategy = order.get("strategy", "")
+        exec_at  = order.get("exec_at", "")
+
+        try:
+            exec_dt = datetime.strptime(exec_at, "%Y-%m-%d %H:%M")
+        except ValueError:
+            continue
+
+        fired = False
+
+        if strategy == "시간 지정 실행":
+            fired = now >= exec_dt
+
+        elif strategy == "목표가 돌파 시 매수":
+            if now >= exec_dt:          # 만료 → 취소
+                orders[i]["status"] = "취소"
+                orders[i]["result"] = "만료 취소"
+                changed = True
+                logger.info(f"예약주문 #{order['id']} 만료 취소")
+                continue
+            target = float(order.get("target_price", 0))
+            cur    = pyupbit.get_current_price(order["ticker"])
+            fired  = cur is not None and cur >= target
+
+        elif strategy == "이평선 상향 돌파 시 매수":
+            if now >= exec_dt:
+                # 확인 시각에 MA 체크
+                ma_period = int(order.get("ma_period", 20))
+                df = broker.get_ohlcv(order["ticker"], interval="day", count=ma_period + 2)
+                if df is not None and not df.empty:
+                    ma  = float(df["close"].rolling(ma_period).mean().iloc[-2])
+                    cur = pyupbit.get_current_price(order["ticker"])
+                    fired = cur is not None and cur > ma
+
+        elif strategy == "리밸런싱 (비율)":
+            fired = now >= exec_dt
+
+        if fired:
+            if DRY_RUN:
+                success, msg = True, f"[DRY RUN] 스킵"
+            else:
+                success, msg = _exec_reserve_order(broker, order)
+            orders[i]["status"] = "완료" if success else "실패"
+            orders[i]["result"] = msg
+            orders[i]["executed_at"] = now_kst()
+            changed = True
+            logger.info(f"예약주문 #{order['id']} {orders[i]['status']}: {msg}")
+            send_telegram(
+                f"{'✅' if success else '❌'} <b>예약주문 {orders[i]['status']}</b>\n"
+                f"#{order['id']} {order['ticker']} {order['side']}\n{msg}"
+            )
+            append_trade_log({
+                "ts":     now_kst(),
+                "type":   "RESERVE",
+                "ticker": order["ticker"],
+                "signal": order["side"],
+                "order":  {"status": "OK" if success else "ERROR", "detail": msg},
+            })
+
+    if changed:
+        save_json(RESERVE_ORDERS_PATH, orders)
+    logger.info(f"예약주문 체크 완료 | 총 {len(orders)}건")
+
+
 # ─── CLI 진입점 ────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="VM Auto Trader")
-    parser.add_argument("--mode",   choices=["auto", "manual"], required=True)
+    parser.add_argument("--mode",   choices=["auto", "manual", "reserve"], required=True)
     parser.add_argument("--side",   choices=["buy", "sell"],    help="manual 모드 필수")
     parser.add_argument("--ticker", default=TICKER,             help=f"대상 티커 (기본: {TICKER})")
     parser.add_argument("--amount", type=float, default=0,      help="매수금액(KRW) 또는 매도수량(코인), 0=전액/전량")
@@ -528,3 +644,5 @@ if __name__ == "__main__":
         if not args.side:
             parser.error("--mode manual 사용 시 --side 필수")
         run_manual_order(args.side, args.ticker, args.amount)
+    elif args.mode == "reserve":
+        run_reserve_check()
