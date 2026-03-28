@@ -67,9 +67,16 @@ def get_laa_prices(years_back: int = 7) -> pd.DataFrame:
 
 
 # ── 신호 계산 ──────────────────────────────────────────────────────────────
-def compute_laa_signal(prices: pd.DataFrame, as_of: pd.Timestamp):
+def compute_laa_signal(
+    prices: pd.DataFrame,
+    as_of: pd.Timestamp,
+    bull_momentum_pct: float = 0.75,
+    bull_safe_pct: float = 0.25,
+):
     """
     특정 날짜 기준 LAA 신호 계산.
+    bull_momentum_pct : 강세장에서 모멘텀 1위 자산 비중 (기본 75%)
+    bull_safe_pct     : 강세장에서 방어 자산(BIL) 비중 (기본 25%)
     반환: (canary_bull, momentum_dict, target_allocation_dict)
     """
     hist = prices[prices.index <= as_of]
@@ -93,7 +100,7 @@ def compute_laa_signal(prices: pd.DataFrame, as_of: pd.Timestamp):
     # ③ 포트폴리오 결정
     if canary_bull:
         best_asset = max(momentum, key=momentum.get)
-        target = {best_asset: 0.75, SAFE_ASSET: 0.25}
+        target = {best_asset: bull_momentum_pct, SAFE_ASSET: bull_safe_pct}
     else:
         target = {SAFE_ASSET: 1.0}
 
@@ -112,9 +119,11 @@ def get_rebalance_dates(start: pd.Timestamp, end: pd.Timestamp, period_months: i
 
 # ── 백테스트 ─────────────────────────────────────────────────────────────
 def backtest_laa(
-    period_years:    int   = 5,
-    initial_capital: float = 10_000_000,
-    period_months:   int   = 1,
+    period_years:      int   = 5,
+    initial_capital:   float = 10_000_000,
+    period_months:     int   = 1,
+    bull_momentum_pct: float = 0.75,
+    bull_safe_pct:     float = 0.25,
 ) -> dict | None:
     """
     LAA 전략 백테스트.
@@ -150,7 +159,11 @@ def backtest_laa(
         is_rebal = any(prev_date < rd <= date for rd in rebal_dates) or date == prices_bt.index[0]
 
         if is_rebal:
-            canary, momentum, target = compute_laa_signal(prices_all[prices_all.index <= date], date)
+            canary, momentum, target = compute_laa_signal(
+                prices_all[prices_all.index <= date], date,
+                bull_momentum_pct=bull_momentum_pct,
+                bull_safe_pct=bull_safe_pct,
+            )
             if target:
                 current_target = target
 
@@ -246,14 +259,18 @@ def backtest_laa(
 
 
 # ── 현재 신호 (실시간) ────────────────────────────────────────────────────
-def get_live_signal() -> dict | None:
+def get_live_signal(bull_momentum_pct: float = 0.75, bull_safe_pct: float = 0.25) -> dict | None:
     """최신 LAA 신호 계산 (yfinance 기준)"""
     prices = get_laa_prices(3)
     if prices.empty:
         return None
 
     as_of = prices.index[-1]
-    canary, momentum, target = compute_laa_signal(prices, as_of)
+    canary, momentum, target = compute_laa_signal(
+        prices, as_of,
+        bull_momentum_pct=bull_momentum_pct,
+        bull_safe_pct=bull_safe_pct,
+    )
 
     if target is None:
         return None

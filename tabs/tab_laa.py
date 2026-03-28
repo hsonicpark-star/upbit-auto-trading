@@ -48,6 +48,31 @@ def render(broker):
 
 
 # ── 백테스트 ──────────────────────────────────────────────────────────────
+def _allocation_settings(key_prefix: str):
+    """강세장 자산 배분 슬라이더 (공통 UI). (모멘텀비중, 방어비중) 반환."""
+    with st.expander("⚙️ 자산 배분 커스터마이징 (기본값: 강세장 75% / 방어 25%)", expanded=False):
+        st.caption("강세장: 모멘텀 1위 ETF + BIL(방어) | 약세장: BIL 100% 자동 적용")
+        col_a, col_b = st.columns(2)
+        with col_a:
+            momentum_pct = st.slider(
+                "모멘텀 1위 자산 비중 (%)",
+                min_value=10, max_value=100, value=75, step=5,
+                key=f"{key_prefix}_momentum_pct",
+            )
+        with col_b:
+            safe_pct = 100 - momentum_pct
+            st.metric("방어 자산 (BIL) 비중", f"{safe_pct}%")
+
+        # 예시 표시
+        c1, c2, c3, c4 = st.columns(4)
+        c1.markdown(f"**SPY** 또는\n**IWM** 또는\n**GLD**\n\n→ {momentum_pct}%")
+        c2.markdown(f"**BIL**\n(방어)\n\n→ {safe_pct}%")
+        c3.markdown("**약세장시**\nBIL\n\n→ 100%")
+        c4.markdown(f"*리밸런싱: {momentum_pct}+{safe_pct}=100%*")
+
+    return momentum_pct / 100, safe_pct / 100
+
+
 def _render_backtest():
     st.markdown("#### ⚙️ 백테스트 설정")
 
@@ -60,6 +85,7 @@ def _render_backtest():
         initial_usd = st.number_input("초기 자본 (USD)", value=10_000, step=1_000, min_value=1_000)
 
     period_months = REBALANCE_PERIODS[rebal_label]
+    bull_momentum_pct, bull_safe_pct = _allocation_settings("bt")
 
     if st.button("▶ 백테스트 실행", type="primary", key="laa_backtest_run"):
         with st.spinner("데이터 수집 및 시뮬레이션 중..."):
@@ -67,6 +93,8 @@ def _render_backtest():
                 period_years=period_years,
                 initial_capital=float(initial_usd),
                 period_months=period_months,
+                bull_momentum_pct=bull_momentum_pct,
+                bull_safe_pct=bull_safe_pct,
             )
 
         if result is None:
@@ -150,7 +178,7 @@ def _render_live(broker):
         st.warning("⚠️ LAA LIVE 트레이딩은 한국투자증권 계좌를 선택해야 합니다.")
         return
 
-    # ── 리밸런싱 주기 설정
+    # ── LIVE 설정
     st.markdown("#### ⚙️ LIVE 설정")
     col1, col2 = st.columns(2)
     with col1:
@@ -158,10 +186,12 @@ def _render_live(broker):
     with col2:
         usd_krw = st.number_input("USD/KRW 환율", value=1380, step=10, min_value=1000)
 
+    bull_momentum_pct, bull_safe_pct = _allocation_settings("live")
+
     # ── 현재 신호 조회
     if st.button("🔄 신호 새로고침", key="laa_refresh"):
         with st.spinner("LAA 신호 계산 중..."):
-            signal = get_live_signal()
+            signal = get_live_signal(bull_momentum_pct=bull_momentum_pct, bull_safe_pct=bull_safe_pct)
         st.session_state["laa_signal"] = signal
 
     signal = st.session_state.get("laa_signal")
@@ -170,7 +200,7 @@ def _render_live(broker):
         st.info("'신호 새로고침' 버튼을 눌러 현재 신호를 확인하세요.")
         if st.button("지금 확인", key="laa_first_check"):
             with st.spinner("LAA 신호 계산 중..."):
-                signal = get_live_signal()
+                signal = get_live_signal(bull_momentum_pct=bull_momentum_pct, bull_safe_pct=bull_safe_pct)
             st.session_state["laa_signal"] = signal
             st.rerun()
         return
