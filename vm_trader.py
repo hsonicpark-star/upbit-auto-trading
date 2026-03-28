@@ -21,6 +21,7 @@ import fcntl
 import argparse
 import logging
 import functools
+import subprocess
 import requests
 import pyupbit
 from pathlib import Path
@@ -457,6 +458,7 @@ def _run_auto_trade_inner():
     }
     append_trade_log(run_entry)
 
+    git_push_data()   # GitHub 백업 (Actions 모니터링용)
     logger.info("=== _run_auto_trade_inner 완료 ===")
 
 
@@ -512,6 +514,29 @@ def run_manual_order(side: str, ticker: str, amount: float):
     }
     append_trade_log(entry)
     logger.info(f"수동 주문 결과: {result}")
+
+
+# ─── GitHub 데이터 백업 ────────────────────────────────────────────────────
+def git_push_data():
+    """data/*.json·csv를 GitHub에 자동 커밋 (백업 + Actions 모니터링용)."""
+    repo = str(Path(__file__).parent)
+    files = [
+        "data/balance_cache.json", "data/signal_state.json",
+        "data/trade_log.json",     "data/trade_log.csv",
+    ]
+    try:
+        subprocess.run(["git", "add"] + files, cwd=repo, timeout=15)
+        result = subprocess.run(
+            ["git", "commit", "-m", f"data: auto update {now_kst()} [skip ci]"],
+            cwd=repo, capture_output=True, text=True, timeout=15,
+        )
+        if "nothing to commit" in result.stdout:
+            logger.info("git: 변경사항 없음 (push 생략)")
+            return
+        subprocess.run(["git", "push"], cwd=repo, timeout=30)
+        logger.info("data/ GitHub 백업 완료")
+    except Exception as e:
+        logger.warning(f"git push 실패: {e}")
 
 
 # ─── 예약주문 VM 실행 ─────────────────────────────────────────────────────

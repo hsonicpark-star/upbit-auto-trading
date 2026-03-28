@@ -1,0 +1,72 @@
+name: VM 모니터링 (다운 감지)
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # 30분마다
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: VM 데이터 신선도 체크 & Telegram 알림
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, sys, requests
+          from datetime import datetime, timezone, timedelta
+
+          KST   = timezone(timedelta(hours=9))
+          TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+          CHAT  = os.environ.get("TELEGRAM_CHAT_ID", "")
+          STALE_HOURS = 5   # 이 시간 이상 미업데이트면 다운으로 간주
+
+          def send_telegram(msg: str):
+              if not TOKEN or not CHAT:
+                  print("Telegram 설정 없음 — 알림 생략")
+                  return
+              requests.post(
+                  f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+                  json={"chat_id": CHAT, "text": msg, "parse_mode": "HTML"},
+                  timeout=5,
+              )
+
+          try:
+              with open("data/signal_state.json", encoding="utf-8") as f:
+                  data = json.load(f)
+
+              updated_at = data.get("updated_at", "")
+              dt = datetime.strptime(
+                  updated_at.replace(" KST", ""), "%Y-%m-%d %H:%M:%S"
+              ).replace(tzinfo=KST)
+              elapsed_h = (datetime.now(KST) - dt).total_seconds() / 3600
+
+              print(f"마지막 업데이트: {updated_at} ({elapsed_h:.1f}시간 전)")
+
+              if elapsed_h > STALE_HOURS:
+                  msg = (
+                      f"🚨 <b>VM 다운 감지 (GitHub Actions)</b>\n"
+                      f"마지막 업데이트: {updated_at}\n"
+                      f"⏱ {elapsed_h:.1f}시간 동안 데이터 미업데이트\n"
+                      f"VM cron 상태를 확인하세요!"
+                  )
+                  send_telegram(msg)
+                  print("⚠️ Telegram 다운 알림 전송")
+                  sys.exit(1)   # Actions 탭에서 실패(빨간 X)로 표시
+              else:
+                  print(f"✅ VM 정상 동작 ({elapsed_h:.1f}시간 전 업데이트)")
+
+          except FileNotFoundError:
+              send_telegram(
+                  "🚨 <b>VM 데이터 없음</b>\n"
+                  "data/signal_state.json 파일이 존재하지 않습니다.\n"
+                  "VM 초기 실행이 필요합니다."
+              )
+              sys.exit(1)
+          EOF
