@@ -16,6 +16,7 @@ import sys
 import json
 import argparse
 import logging
+import requests
 import pyupbit
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
@@ -26,7 +27,9 @@ from broker_upbit import BrokerUpbit
 # ─── 설정 ──────────────────────────────────────────────────────────────────
 load_dotenv()
 
-DRY_RUN       = os.getenv("DRY_RUN", "false").lower() in ("1", "true", "yes")
+DRY_RUN           = os.getenv("DRY_RUN", "false").lower() in ("1", "true", "yes")
+TELEGRAM_TOKEN    = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID  = os.getenv("TELEGRAM_CHAT_ID", "")
 TICKER        = "KRW-BTC"
 DONCHIAN_HIGH = 115          # 4H 상단 기간
 DONCHIAN_LOW  = 105          # 4H 하단 기간
@@ -45,6 +48,21 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("vm_trader")
+
+
+# ─── Telegram 알림 ─────────────────────────────────────────────────────────
+def send_telegram(message: str):
+    """Telegram 메시지 전송. 토큰/Chat ID 없으면 무시."""
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+            json={"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"},
+            timeout=5,
+        )
+    except Exception as e:
+        logger.warning(f"Telegram 전송 실패: {e}")
 
 
 # ─── 유틸 ──────────────────────────────────────────────────────────────────
@@ -223,6 +241,7 @@ def run_auto_trade():
         }
         append_trade_log(entry)
         save_json(SIGNAL_STATE_PATH, new_state)
+        send_telegram(f"⚠️ <b>VM 오류</b>\n{now_kst()}\n{new_state.get('reason', '')}")
         sys.exit(1)
 
     # 이전 신호와 비교 – 전환 시에만 주문
@@ -233,9 +252,23 @@ def run_auto_trade():
     order_result = None
     if new_signal == "BUY" and prev_signal != "BUY":
         logger.info("👉 매수 신호 전환 감지 → 매수 실행")
+        send_telegram(
+            f"🟢 <b>매수 신호 전환</b>\n"
+            f"{now_kst()}\n"
+            f"현재가: {new_state['current_price']:,.0f}원\n"
+            f"사유: {new_state.get('reason','')}"
+            + (" [DRY RUN]" if DRY_RUN else "")
+        )
         order_result = execute_buy(broker, TICKER)
     elif new_signal == "SELL" and prev_signal not in ("SELL", ""):
         logger.info("👉 매도 신호 전환 감지 → 매도 실행")
+        send_telegram(
+            f"🔴 <b>매도 신호 전환</b>\n"
+            f"{now_kst()}\n"
+            f"현재가: {new_state['current_price']:,.0f}원\n"
+            f"사유: {new_state.get('reason','')}"
+            + (" [DRY RUN]" if DRY_RUN else "")
+        )
         order_result = execute_sell(broker, TICKER)
     else:
         logger.info(f"신호 유지 ({prev_signal} → {new_signal}) | 주문 없음")
@@ -245,6 +278,14 @@ def run_auto_trade():
 
     # 거래 로그 기록
     if order_result:
+        status = order_result.get("status", "")
+        icon = "✅" if status == "OK" else ("🧪" if status == "DRY_RUN" else "❌")
+        send_telegram(
+            f"{icon} <b>주문 결과</b>: {new_signal}\n"
+            f"{now_kst()}\n"
+            f"상태: {status}"
+            + (f"\n잔고부족/사유: {order_result.get('reason','')}" if status in ("SKIP","ERROR") else "")
+        )
         entry = {
             "ts":           now_kst(),
             "type":         "ORDER",
