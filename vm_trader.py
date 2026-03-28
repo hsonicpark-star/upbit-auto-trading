@@ -13,6 +13,7 @@ VM Auto Trader – GitHub Actions / Manual 실행 진입점
 
 import os
 import sys
+import csv
 import json
 import time
 import shutil
@@ -44,6 +45,7 @@ KST           = timezone(timedelta(hours=9))
 BALANCE_CACHE_PATH = DATA_DIR / "balance_cache.json"
 SIGNAL_STATE_PATH  = DATA_DIR / "signal_state.json"
 TRADE_LOG_PATH     = DATA_DIR / "trade_log.json"
+TRADE_LOG_CSV_PATH = DATA_DIR / "trade_log.csv"
 BACKUP_DIR         = DATA_DIR / "backup"
 LOCK_FILE_PATH     = DATA_DIR / "vm_trader.lock"
 
@@ -175,6 +177,36 @@ def append_trade_log(entry: dict):
     logs.insert(0, entry)          # 최신이 맨 위
     logs = logs[:500]              # 최대 500건 유지
     save_json(TRADE_LOG_PATH, logs)
+    _append_trade_csv(entry)
+
+
+# CSV 컬럼 순서
+_CSV_FIELDS = ["ts", "type", "ticker", "signal", "prev_signal", "price",
+               "order_status", "amount", "profit_pct"]
+
+def _append_trade_csv(entry: dict):
+    """trade_log.json 항목을 CSV에도 한 줄 추가 (엑셀 분석용)."""
+    order = entry.get("order", {}) or {}
+    row = {
+        "ts":           entry.get("ts", ""),
+        "type":         entry.get("type", ""),
+        "ticker":       entry.get("ticker", "KRW-BTC"),
+        "signal":       entry.get("signal", ""),
+        "prev_signal":  entry.get("prev_signal", ""),
+        "price":        entry.get("price", ""),
+        "order_status": order.get("status", ""),
+        "amount":       order.get("amount", order.get("volume", "")),
+        "profit_pct":   entry.get("profit_pct", ""),
+    }
+    write_header = not TRADE_LOG_CSV_PATH.exists()
+    try:
+        with open(TRADE_LOG_CSV_PATH, "a", newline="", encoding="utf-8-sig") as f:
+            writer = csv.DictWriter(f, fieldnames=_CSV_FIELDS)
+            if write_header:
+                writer.writeheader()
+            writer.writerow(row)
+    except Exception as e:
+        logger.warning(f"CSV 기록 실패: {e}")
 
 
 # ─── 전략 계산 ──────────────────────────────────────────────────────────────
@@ -373,6 +405,22 @@ def _run_auto_trade_inner():
         order_result = execute_sell(broker, TICKER)
     else:
         logger.info(f"신호 유지 ({prev_signal} → {new_signal}) | 주문 없음")
+
+    # 수익률 계산 (BTC 보유 시)
+    try:
+        balances = load_json(BALANCE_CACHE_PATH).get("balances", [])
+        btc = next((b for b in balances if b.get("currency") == "BTC"), None)
+        if btc and float(btc.get("balance", 0)) > 0:
+            avg_buy  = float(btc.get("avg_buy_price", 0))
+            cur      = new_state.get("current_price", 0)
+            profit   = round((cur - avg_buy) / avg_buy * 100, 2) if avg_buy > 0 else None
+            new_state["avg_buy_price"] = avg_buy
+            new_state["holding_btc"]   = float(btc["balance"])
+            new_state["profit_pct"]    = profit
+        else:
+            new_state["profit_pct"] = None
+    except Exception:
+        new_state["profit_pct"] = None
 
     # 상태 저장
     save_json(SIGNAL_STATE_PATH, new_state)

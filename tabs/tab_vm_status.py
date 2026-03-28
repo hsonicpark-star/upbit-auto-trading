@@ -55,6 +55,18 @@ def render():
         c3.metric("SMA29",    f"{signal_data.get('sma', 0):,.0f} 원")
         c4.metric("업데이트", signal_data.get("updated_at", "-"))
 
+        # ── 수익률 표시 (BTC 보유 중일 때) ────────────────────────────────
+        profit_pct = signal_data.get("profit_pct")
+        avg_buy    = signal_data.get("avg_buy_price")
+        holding    = signal_data.get("holding_btc")
+        if profit_pct is not None and avg_buy:
+            st.divider()
+            p1, p2, p3 = st.columns(3)
+            color = "normal" if profit_pct >= 0 else "inverse"
+            p1.metric("평균 매수가",  f"{avg_buy:,.0f} 원")
+            p2.metric("현재 수익률",  f"{profit_pct:+.2f} %", delta=f"{profit_pct:+.2f}%", delta_color=color)
+            p3.metric("BTC 보유량",   f"{holding:.6f}" if holding else "-")
+
         with st.expander("📐 지표 상세"):
             st.json({
                 "Donchian 상단 (115, 4H)": signal_data.get("donchian_upper"),
@@ -98,11 +110,22 @@ def render():
     else:
         st.warning("잔고 데이터 없음.")
 
+
     st.divider()
 
     # ── 거래 로그 ──────────────────────────────────────────────────────────
     trade_log = _load("trade_log.json")
     st.subheader("📋 실행 로그 (최근 50건)")
+
+    # CSV 다운로드
+    csv_path = os.path.join(DATA_DIR, "trade_log.csv")
+    if os.path.exists(csv_path):
+        with open(csv_path, encoding="utf-8-sig") as f:
+            csv_bytes = f.read().encode("utf-8-sig")
+        st.download_button("⬇️ CSV 다운로드", data=csv_bytes,
+                           file_name="trade_log.csv", mime="text/csv",
+                           key="dl_trade_csv")
+
     if trade_log and isinstance(trade_log, list):
         for entry in trade_log[:50]:
             t      = entry.get("ts", "")
