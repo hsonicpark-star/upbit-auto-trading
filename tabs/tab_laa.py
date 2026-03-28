@@ -168,6 +168,82 @@ def _render_backtest():
         )
 
 
+# ── 자산 배분 계산기 테이블 ────────────────────────────────────────────────
+def _render_allocation_table(prices: dict, key_prefix: str = "live"):
+    """종목 / 비중(조절) / 현재가 / 목표금액 / 매수수량 / 실제투자액 테이블"""
+
+    col_inv, col_hint = st.columns([1, 2])
+    with col_inv:
+        total_investment = st.number_input(
+            "투자금 ($)", value=10_000, step=1_000, min_value=100,
+            key=f"{key_prefix}_total_invest",
+        )
+    with col_hint:
+        st.info("투자금을 입력하면 매수 수량이 자동 계산됩니다")
+
+    # 헤더
+    H = st.columns([2, 1.2, 1.8, 1.8, 1.8, 1.8])
+    for col, label in zip(H, ["종목", "비중", "현재가", "목표금액", "매수 수량", "실제 투자액"]):
+        col.markdown(f"**{label}**")
+    st.divider()
+
+    weights      = {}
+    total_actual = 0.0
+    total_shares = 0
+
+    for asset in LAA_ASSETS:
+        is_safe = (asset == SAFE_ASSET)
+        C = st.columns([2, 1.2, 1.8, 1.8, 1.8, 1.8])
+
+        with C[0]:
+            badge = " &nbsp;<span style='background:#f0a500;color:#fff;padding:2px 6px;border-radius:4px;font-size:12px'>방어</span>" if is_safe else ""
+            st.markdown(f"**{asset}**{badge}<br><small style='color:gray'>{LAA_ASSETS[asset]['name']}</small>",
+                        unsafe_allow_html=True)
+
+        with C[1]:
+            w = st.number_input(
+                "비중", value=25, min_value=0, max_value=100, step=5,
+                key=f"{key_prefix}_w_{asset}", label_visibility="collapsed",
+            )
+            weights[asset] = w
+
+        price      = prices.get(asset, 0)
+        target_usd = total_investment * w / 100
+        shares     = int(target_usd / price) if price > 0 else 0
+        actual     = shares * price
+        total_actual  += actual
+        total_shares  += shares
+
+        C[2].markdown(f"${price:,.2f}" if price else "-")
+        C[3].markdown(f"${target_usd:,.0f}")
+        C[4].markdown(f"**{shares}주**")
+        C[5].markdown(f"${actual:,.2f}")
+
+    st.divider()
+
+    # 합계 행
+    total_w = sum(weights.values())
+    TC = st.columns([2, 1.2, 1.8, 1.8, 1.8, 1.8])
+    TC[0].markdown("**합계**")
+    TC[1].markdown(f"**{total_w}%**" + (" ⚠️" if total_w != 100 else "")  )
+    TC[3].markdown(f"**${total_investment:,.0f}**")
+    TC[4].markdown(f"**{total_shares}주**")
+    TC[5].markdown(f"**${total_actual:,.2f}**")
+
+    # 잔여 현금 행
+    remaining = total_investment - total_actual
+    RC = st.columns([2, 1.2, 1.8, 1.8, 1.8, 1.8])
+    RC[0].markdown("<small>잔여 현금 (정수주 매수 후)</small>", unsafe_allow_html=True)
+    RC[5].markdown(f"${remaining:,.2f}")
+
+    if total_w != 100:
+        st.warning(f"⚠️ 비중 합계: {total_w}% (100%가 되어야 합니다)")
+
+    # 0~1 스케일로 변환
+    target_weights = {a: w / 100 for a, w in weights.items() if w > 0}
+    return target_weights, total_investment
+
+
 # ── LIVE 트레이딩 ─────────────────────────────────────────────────────────
 def _render_live(broker):
     st.markdown("#### 🔴 실시간 LAA 신호")
@@ -178,71 +254,61 @@ def _render_live(broker):
         st.warning("⚠️ LAA LIVE 트레이딩은 한국투자증권 계좌를 선택해야 합니다.")
         return
 
-    # ── LIVE 설정
-    st.markdown("#### ⚙️ LIVE 설정")
+    # ── 기본 설정
     col1, col2 = st.columns(2)
     with col1:
-        rebal_label = st.selectbox("리밸런싱 주기 ", list(REBALANCE_PERIODS.keys()), index=0, key="live_rebal")
+        st.selectbox("리밸런싱 주기 ", list(REBALANCE_PERIODS.keys()), index=0, key="live_rebal")
     with col2:
         usd_krw = st.number_input("USD/KRW 환율", value=1380, step=10, min_value=1000)
 
-    bull_momentum_pct, bull_safe_pct = _allocation_settings("live")
-
-    # ── 현재 신호 조회
-    if st.button("🔄 신호 새로고침", key="laa_refresh"):
+    # ── 신호 새로고침 (현재가 포함)
+    if st.button("🔄 신호 / 현재가 새로고침", key="laa_refresh"):
         with st.spinner("LAA 신호 계산 중..."):
-            signal = get_live_signal(bull_momentum_pct=bull_momentum_pct, bull_safe_pct=bull_safe_pct)
+            signal = get_live_signal()
         st.session_state["laa_signal"] = signal
 
     signal = st.session_state.get("laa_signal")
 
     if signal is None:
-        st.info("'신호 새로고침' 버튼을 눌러 현재 신호를 확인하세요.")
+        st.info("'신호 / 현재가 새로고침' 버튼을 눌러 현재가를 가져오세요.")
         if st.button("지금 확인", key="laa_first_check"):
             with st.spinner("LAA 신호 계산 중..."):
-                signal = get_live_signal(bull_momentum_pct=bull_momentum_pct, bull_safe_pct=bull_safe_pct)
+                signal = get_live_signal()
             st.session_state["laa_signal"] = signal
             st.rerun()
         return
 
-    # ── 신호 표시
-    st.divider()
-    canary   = signal["canary_bull"]
+    prices  = signal.get("prices", {})
+    canary  = signal["canary_bull"]
     momentum = signal.get("momentum", {})
-    target   = signal.get("target", {})
-    prices   = signal.get("prices", {})
     spy_sma  = signal.get("spy_200sma", 0)
     as_of    = signal["as_of"]
 
+    # ── 캐너리 신호 & 모멘텀 (간략)
     col_s, col_m = st.columns([1, 2])
-
     with col_s:
-        st.markdown("**📡 캐너리 신호 (SPY > 200일 SMA)**")
+        st.markdown("**📡 캐너리 신호**")
         if canary:
-            st.success(f"🟢 강세장\nSPY: ${prices.get('SPY', 0):.2f} > SMA: ${spy_sma:.2f}")
+            st.success(f"🟢 강세장  \nSPY ${prices.get('SPY',0):.2f} > SMA ${spy_sma:.2f}")
         else:
-            st.error(f"🔴 약세장\nSPY: ${prices.get('SPY', 0):.2f} < SMA: ${spy_sma:.2f}")
+            st.error(f"🔴 약세장  \nSPY ${prices.get('SPY',0):.2f} < SMA ${spy_sma:.2f}")
         st.caption(f"기준일: {as_of.strftime('%Y-%m-%d')}")
-
     with col_m:
         st.markdown("**📊 12개월 모멘텀**")
         for asset in MOMENTUM_ASSETS:
             mom = momentum.get(asset, 0)
             bar = "🟢" if mom > 0 else "🔴"
-            st.write(f"{bar} **{asset}** ({LAA_ASSETS[asset]['name']}): {_pct(mom)}")
-        st.write(f"⚪ **BIL** ({LAA_ASSETS['BIL']['name']}): 방어 자산 (모멘텀 미비교)")
+            st.write(f"{bar} **{asset}**: {_pct(mom)}")
+        st.write("⚪ **BIL**: 방어 자산")
 
-    # ── 목표 비중
+    # ── 자산 배분 계산기
     st.divider()
-    st.markdown("**🎯 목표 포트폴리오 배분**")
-    cols = st.columns(len(target))
-    for i, (sym, w) in enumerate(target.items()):
-        with cols[i]:
-            st.metric(sym, f"{w*100:.0f}%", LAA_ASSETS[sym]["name"])
+    st.markdown("#### 💼 자산 배분 계산기")
+    target_weights, total_investment = _render_allocation_table(prices, key_prefix="live")
 
-    # ── 현재 보유 / 주문 계산
+    # ── KIS 잔고 조회 & 리밸런싱
     st.divider()
-    st.markdown("#### 💼 현재 보유 현황 & 리밸런싱 주문")
+    st.markdown("#### 📥 리밸런싱 주문")
 
     if st.button("📥 KIS 잔고 조회 및 주문 계산", key="laa_calc_orders"):
         with st.spinner("잔고 조회 중..."):
@@ -259,28 +325,24 @@ def _render_live(broker):
         st.info("'KIS 잔고 조회 및 주문 계산' 버튼을 눌러주세요.")
         return
 
-    usd_cash = overseas.get("usd_balance", 0)
+    usd_cash      = overseas.get("usd_balance", 0)
     holdings_list = overseas.get("holdings", [])
-
-    # 현재 보유 테이블
-    holdings_df = pd.DataFrame(holdings_list) if holdings_list else pd.DataFrame(
+    holdings_df   = pd.DataFrame(holdings_list) if holdings_list else pd.DataFrame(
         columns=["symbol", "quantity", "avg_price", "current_price", "eval_amount"]
     )
+
     st.markdown(f"**달러 예수금:** {_usd(usd_cash)}")
     if not holdings_df.empty:
-        st.dataframe(holdings_df, use_container_width=True)
+        st.dataframe(holdings_df, use_container_width=True, hide_index=True)
     else:
         st.info("보유 해외 주식 없음")
 
-    # 총 자산 (USD)
     holdings_dict = {row["symbol"]: row["quantity"] for _, row in holdings_df.iterrows()} if not holdings_df.empty else {}
     eval_sum      = sum(r["eval_amount"] for r in holdings_list)
     total_usd     = usd_cash + eval_sum
-
     st.metric("총 해외 자산 (USD)", _usd(total_usd), f"≈ {_fmt_krw(total_usd * usd_krw)}")
 
-    # 주문 계산
-    orders = compute_rebalance_orders(target, holdings_dict, prices, total_usd)
+    orders = compute_rebalance_orders(target_weights, holdings_dict, prices, total_usd)
 
     st.divider()
     st.markdown("**📋 리밸런싱 필요 주문**")
@@ -296,8 +358,6 @@ def _render_live(broker):
                  f"@ ${order['price']:.2f} ≈ {_usd(est)}")
 
     st.divider()
-
-    # ── 실제 주문 실행
     st.markdown("#### ⚠️ 리밸런싱 실행")
     st.warning("아래 버튼을 누르면 KIS 실전 계좌에 실제 주문이 발생합니다.")
 
@@ -310,24 +370,18 @@ def _render_live(broker):
             qty      = order["qty"]
             price    = order["price"]
             exchange = LAA_ASSETS[symbol]["exchange_order"]
-
             try:
                 if order["side"] == "매수":
                     res = broker.buy_overseas(symbol, price, qty, exchange)
                 else:
                     res = broker.sell_overseas(symbol, price, qty, exchange)
-
-                if res:
-                    results.append(f"✅ {symbol} {order['side']} {qty}주 → 주문번호: {res.get('uuid')}")
-                else:
-                    results.append(f"❌ {symbol} {order['side']} 실패")
+                results.append(f"✅ {symbol} {order['side']} {qty}주" if res else f"❌ {symbol} {order['side']} 실패")
             except Exception as e:
                 results.append(f"❌ {symbol} 오류: {e}")
 
         for r in results:
             st.write(r)
 
-        # 세션 초기화
         st.session_state.pop("laa_overseas", None)
         st.session_state.pop("laa_signal", None)
         st.success("리밸런싱 주문 완료! 잔고를 다시 조회해 확인하세요.")
