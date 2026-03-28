@@ -14,8 +14,12 @@ VM Auto Trader – GitHub Actions / Manual 실행 진입점
 import os
 import sys
 import json
+import time
+import shutil
+import fcntl
 import argparse
 import logging
+import functools
 import requests
 import pyupbit
 from pathlib import Path
@@ -40,6 +44,11 @@ KST           = timezone(timedelta(hours=9))
 BALANCE_CACHE_PATH = DATA_DIR / "balance_cache.json"
 SIGNAL_STATE_PATH  = DATA_DIR / "signal_state.json"
 TRADE_LOG_PATH     = DATA_DIR / "trade_log.json"
+BACKUP_DIR         = DATA_DIR / "backup"
+LOCK_FILE_PATH     = DATA_DIR / "vm_trader.lock"
+
+MAX_RETRIES  = 3    # API 호출 최대 재시도 횟수
+RETRY_DELAY  = 5    # 재시도 대기 시간 (초)
 
 # ─── 로거 ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -48,6 +57,76 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("vm_trader")
+
+
+# ─── 중복 실행 방지 (flock) ────────────────────────────────────────────────
+class SingleInstanceLock:
+    """fcntl 기반 파일 락 – 동일 프로세스가 중복 실행되면 즉시 종료."""
+    def __init__(self, lock_path: Path):
+        self.lock_path = lock_path
+        self._fp = None
+
+    def __enter__(self):
+        self.lock_path.parent.mkdir(exist_ok=True)
+        self._fp = open(self.lock_path, "w")
+        try:
+            fcntl.flock(self._fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except IOError:
+            self._fp.close()
+            raise RuntimeError("이미 실행 중인 vm_trader 인스턴스가 있습니다.")
+        self._fp.write(str(os.getpid()))
+        self._fp.flush()
+        return self
+
+    def __exit__(self, *_):
+        if self._fp:
+            fcntl.flock(self._fp, fcntl.LOCK_UN)
+            self._fp.close()
+            try:
+                self.lock_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+
+# ─── 재시도 데코레이터 ─────────────────────────────────────────────────────
+def with_retry(max_retries: int = MAX_RETRIES, delay: int = RETRY_DELAY):
+    """네트워크/API 오류 시 최대 max_retries 회 재시도."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            last_err = None
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_err = e
+                    logger.warning(f"{func.__name__} 실패 ({attempt}/{max_retries}): {e}")
+                    if attempt < max_retries:
+                        time.sleep(delay)
+            raise last_err
+        return wrapper
+    return decorator
+
+
+# ─── 상태 파일 백업 ────────────────────────────────────────────────────────
+def backup_state():
+    """signal_state / balance_cache 를 backup/ 에 타임스탬프 복사 후 7일치 유지."""
+    BACKUP_DIR.mkdir(exist_ok=True)
+    ts = datetime.now(KST).strftime("%Y%m%d_%H%M%S")
+    for src in [SIGNAL_STATE_PATH, BALANCE_CACHE_PATH]:
+        if src.exists():
+            try:
+                shutil.copy2(src, BACKUP_DIR / f"{src.stem}_{ts}.json")
+            except Exception as e:
+                logger.warning(f"백업 실패 {src.name}: {e}")
+    # 7일 이상 된 백업 파일 자동 삭제
+    cutoff = datetime.now(KST) - timedelta(days=7)
+    for f in BACKUP_DIR.glob("*.json"):
+        try:
+            if datetime.fromtimestamp(f.stat().st_mtime, tz=KST) < cutoff:
+                f.unlink()
+        except Exception:
+            pass
 
 
 # ─── Telegram 알림 ─────────────────────────────────────────────────────────
@@ -99,6 +178,7 @@ def append_trade_log(entry: dict):
 
 
 # ─── 전략 계산 ──────────────────────────────────────────────────────────────
+@with_retry()
 def calc_donchian(broker: BrokerUpbit, ticker: str):
     """4H 캔들로 Donchian 채널 계산"""
     fetch = max(DONCHIAN_HIGH, DONCHIAN_LOW) + 5
@@ -110,6 +190,7 @@ def calc_donchian(broker: BrokerUpbit, ticker: str):
     return upper, lower
 
 
+@with_retry()
 def calc_sma(broker: BrokerUpbit, ticker: str) -> float | None:
     """1D 캔들로 SMA 계산"""
     fetch = SMA_PERIOD + 5
@@ -122,7 +203,8 @@ def calc_sma(broker: BrokerUpbit, ticker: str) -> float | None:
 
 def get_signal(broker: BrokerUpbit, ticker: str) -> dict:
     """현재 가격과 전략 지표를 종합해 신호 반환"""
-    current_price = pyupbit.get_current_price(ticker)
+    get_price = with_retry()(lambda: pyupbit.get_current_price(ticker))
+    current_price = get_price()
     donchian_upper, donchian_lower = calc_donchian(broker, ticker)
     sma = calc_sma(broker, ticker)
 
@@ -220,12 +302,31 @@ def save_balance(broker: BrokerUpbit):
 
 # ─── 자동매매 메인 ─────────────────────────────────────────────────────────
 def run_auto_trade():
+    try:
+        lock = SingleInstanceLock(LOCK_FILE_PATH)
+        lock.__enter__()
+    except RuntimeError as e:
+        logger.warning(str(e))
+        sys.exit(0)   # 정상 종료 (중복 실행 아님)
+
+    try:
+        _run_auto_trade_inner()
+    except Exception as e:
+        logger.exception(f"run_auto_trade 예외: {e}")
+        send_telegram(f"🚨 <b>VM 크래시</b>\n{now_kst()}\n{e}")
+        sys.exit(1)
+    finally:
+        lock.__exit__(None, None, None)
+
+
+def _run_auto_trade_inner():
     logger.info(f"=== run_auto_trade | DRY_RUN={DRY_RUN} ===")
     access = os.getenv("UPBIT_ACCESS_KEY")
     secret = os.getenv("UPBIT_SECRET_KEY")
     broker = BrokerUpbit(access, secret)
 
     ensure_data_dir()
+    backup_state()        # 실행 전 현재 상태 백업
     save_balance(broker)
 
     # 신호 계산
@@ -307,7 +408,7 @@ def run_auto_trade():
     }
     append_trade_log(run_entry)
 
-    logger.info("=== run_auto_trade 완료 ===")
+    logger.info("=== _run_auto_trade_inner 완료 ===")
 
 
 # ─── 수동 주문 ──────────────────────────────────────────────────────────────
