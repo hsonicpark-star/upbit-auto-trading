@@ -74,8 +74,8 @@ def _cron_health() -> str:
         last = lines[-1]
         # 형식: "2026-03-28 07:22:02 [INFO] ..."
         ts_str = last[:19]
-        dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=KST)
-        elapsed = int((datetime.now(KST) - dt).total_seconds() / 60)
+        dt      = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")  # VM 로컬(UTC) 기준
+        elapsed = int((datetime.utcnow() - dt).total_seconds() / 60)
         if elapsed <= 2:
             return f"✅ 정상 (1분 전)"
         elif elapsed <= 5:
