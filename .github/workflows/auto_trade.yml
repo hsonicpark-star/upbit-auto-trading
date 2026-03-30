@@ -1,9 +1,10 @@
 name: Auto Trade (Upbit)
 
 on:
-  schedule:
-    - cron: '0 */4 * * *'   # 4시간마다 (UTC 기준, KST = UTC+9)
-  workflow_dispatch:          # GitHub UI에서 수동 실행 가능
+  # schedule 비활성화 – VM cron이 주력 (GitHub Actions는 IP 거부로 실패)
+  # schedule:
+  #   - cron: '0 */4 * * *'
+  workflow_dispatch:          # GitHub UI에서 수동 실행만 허용
     inputs:
       dry_run:
         description: 'Dry run (true=테스트, false=실제주문)'
