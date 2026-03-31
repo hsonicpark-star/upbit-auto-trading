@@ -533,8 +533,14 @@ def git_push_data():
         if "nothing to commit" in result.stdout:
             logger.info("git: 변경사항 없음 (push 생략)")
             return
-        subprocess.run(["git", "push"], cwd=repo, timeout=30)
-        logger.info("data/ GitHub 백업 완료")
+        subprocess.run(["git", "pull", "--rebase"], cwd=repo, timeout=30)
+        push = subprocess.run(
+            ["git", "push"], cwd=repo, capture_output=True, text=True, timeout=30,
+        )
+        if push.returncode == 0:
+            logger.info("data/ GitHub 백업 완료")
+        else:
+            logger.warning(f"git push 실패: {push.stderr.strip()}")
     except Exception as e:
         logger.warning(f"git push 실패: {e}")
 
