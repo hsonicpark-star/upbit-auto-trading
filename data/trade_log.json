@@ -1,5 +1,194 @@
 [
   {
+    "ts": "2026-03-31 09:00:06 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 101458000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-31 05:00:11 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 101240000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-31 01:00:05 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 102460000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-30 21:00:07 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 102558000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-30 17:00:06 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 102379000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-30 16:00:55 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 101805000.0,
+    "dry_run": true
+  },
+  {
+    "ts": "2026-03-30 15:59:24 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 101963000.0,
+    "dry_run": true
+  },
+  {
+    "ts": "2026-03-30 15:45:54 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 101970000.0,
+    "dry_run": true
+  },
+  {
+    "ts": "2026-03-30 13:00:05 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 101737000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-30 09:00:08 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 100450000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-30 05:00:05 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 100941000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-30 01:00:05 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 100990000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-29 21:00:05 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 101452000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-29 17:00:05 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 101221000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-29 13:00:10 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 101429000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-29 09:00:07 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 100894000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-29 05:00:06 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 101430000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-29 01:00:06 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 101511000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-28 21:00:06 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 100701000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-28 17:00:11 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 101094000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-28 16:48:01 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 100980000.0,
+    "dry_run": true
+  },
+  {
+    "ts": "2026-03-28 16:43:43 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 100990000.0,
+    "dry_run": true
+  },
+  {
+    "ts": "2026-03-28 15:54:47 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 100835000.0,
+    "dry_run": true
+  },
+  {
+    "ts": "2026-03-28 15:50:42 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 100844000.0,
+    "dry_run": true
+  },
+  {
+    "ts": "2026-03-28 15:45:23 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 100920000.0,
+    "dry_run": true
+  },
+  {
+    "ts": "2026-03-28 15:24:32 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 101020000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-03-28 14:10:08 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 100646000.0,
+    "dry_run": false
+  },
+  {
     "ts": "2026-03-28 13:48:44 KST",
     "type": "RUN",
     "signal": "SELL",
