@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-04-01 13:00:03 KST",
+  "updated_at": "2026-04-01 17:00:03 KST",
   "dry_run": false,
   "balances": [
     {
@@ -12,7 +12,7 @@
     },
     {
       "currency": "KRW",
-      "balance": "3997.99255294",
+      "balance": "4001.99255294",
       "locked": "0",
       "avg_buy_price": "0",
       "avg_buy_price_modified": true,
