@@ -1,5 +1,26 @@
 [
   {
+    "ts": "2026-04-02 05:00:07 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 103124000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-04-02 05:00:07 KST",
+    "type": "ORDER",
+    "ticker": "KRW-BTC",
+    "signal": "SELL",
+    "prev_signal": "HOLD",
+    "order": {
+      "status": "OK",
+      "ticker": "KRW-BTC",
+      "volume": 5.749e-05,
+      "result": "{'uuid': '770054ff-1cc5-4184-9b90-9fb5fa50a6a1', 'side': 'ask', 'ord_type': 'market', 'state': 'wait', 'market': 'KRW-BTC', 'created_at': '2026-04-02T05:00:07+09:00', 'volume': '0.00005749', 'remaining_volume': '0.00005749', 'prevented_volume': '0', 'reserved_fee': '0', 'remaining_fee': '0', 'paid_fee': '0', 'locked': '0.00005749', 'prevented_locked': '0', 'executed_volume': '0', 'trades_count': 0}"
+    },
+    "price": 103124000.0
+  },
+  {
     "ts": "2026-04-02 01:00:05 KST",
     "type": "RUN",
     "signal": "HOLD",
