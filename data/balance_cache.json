@@ -1,18 +1,10 @@
 {
-  "updated_at": "2026-04-02 05:00:03 KST",
+  "updated_at": "2026-04-02 09:00:03 KST",
   "dry_run": false,
   "balances": [
     {
-      "currency": "BTC",
-      "balance": "0.00005749",
-      "locked": "0",
-      "avg_buy_price": "104350000",
-      "avg_buy_price_modified": false,
-      "unit_currency": "KRW"
-    },
-    {
       "currency": "KRW",
-      "balance": "4001.99255294",
+      "balance": "9923.14503567",
       "locked": "0",
       "avg_buy_price": "0",
       "avg_buy_price_modified": true,
