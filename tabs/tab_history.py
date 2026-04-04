@@ -4,10 +4,40 @@ Shows completed trades, deposits, and withdrawals via broker interface.
 """
 import streamlit as st
 import pandas as pd
+from pathlib import Path
 from tabs.tab_log import add_log
 from utils import get_ticker_display, is_stock
 
+_CSV_PATH = Path(__file__).parent.parent / "data" / "trade_log.csv"
+
 TICKERS = ["KRW-BTC", "KRW-ETH", "KRW-XRP", "KRW-SOL", "KRW-ADA", "KRW-DOGE"]
+
+
+def _load_profit_stats() -> dict | None:
+    """trade_log.csv에서 수익률 통계 계산 (ORDER 타입, OK 상태만)."""
+    if not _CSV_PATH.exists():
+        return None
+    try:
+        df = pd.read_csv(_CSV_PATH, encoding="utf-8-sig")
+        orders = df[(df["type"] == "ORDER") & (df["order_status"] == "OK")].copy()
+        orders["profit_pct"] = pd.to_numeric(orders["profit_pct"], errors="coerce")
+        profits = orders["profit_pct"].dropna()
+        if profits.empty:
+            return {"count": len(orders), "profit_count": 0, "win_rate": None,
+                    "avg_profit": None, "max_profit": None, "max_loss": None}
+        wins = profits[profits > 0]
+        losses = profits[profits < 0]
+        return {
+            "count":       len(profits),
+            "win_rate":    round(len(wins) / len(profits) * 100, 1),
+            "avg_profit":  round(profits.mean(), 2),
+            "avg_win":     round(wins.mean(), 2) if not wins.empty else 0,
+            "avg_loss":    round(losses.mean(), 2) if not losses.empty else 0,
+            "max_profit":  round(profits.max(), 2),
+            "max_loss":    round(profits.min(), 2),
+        }
+    except Exception:
+        return None
 
 
 def _fetch_orders(broker, ticker, state="done", count=50):
@@ -51,6 +81,21 @@ def _orders_to_df(orders, ticker=None):
 def render(broker):
     broker_name = getattr(broker, "name", "브로커")
     st.subheader(f"📂 거래 내역 — {broker_name}")
+
+    # ── 수익률 통계 (trade_log.csv 기반) ─────────────────────────────────
+    stats = _load_profit_stats()
+    if stats and stats.get("count", 0) > 0:
+        st.subheader("📊 자동매매 수익률 통계")
+        s1, s2, s3, s4, s5 = st.columns(5)
+        s1.metric("총 체결 횟수",  f"{stats['count']}건")
+        s2.metric("승률",          f"{stats['win_rate']} %" if stats['win_rate'] is not None else "—")
+        s3.metric("평균 수익률",   f"{stats['avg_profit']:+.2f} %" if stats['avg_profit'] is not None else "—")
+        s4.metric("최대 수익",     f"{stats['max_profit']:+.2f} %" if stats['max_profit'] is not None else "—")
+        s5.metric("최대 손실",     f"{stats['max_loss']:+.2f} %" if stats['max_loss'] is not None else "—")
+        with st.expander("상세 통계"):
+            st.write(f"- 평균 수익 거래: **{stats.get('avg_win', 0):+.2f} %**")
+            st.write(f"- 평균 손실 거래: **{stats.get('avg_loss', 0):+.2f} %**")
+        st.divider()
 
     hist_tab1, hist_tab2, hist_tab3 = st.tabs(["💹 체결 내역", "📥 입금 내역", "📤 출금 내역"])
 

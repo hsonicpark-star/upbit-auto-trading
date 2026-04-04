@@ -5,21 +5,23 @@ Tab: Reserve Orders (VM 이관 버전)
 실제 주문 실행은 VM cron (1분마다 vm_trader.py --mode reserve) 에서 담당합니다.
 이 탭은 예약 등록 / 조회 / 취소만 담당합니다.
 """
+import fcntl
 import json
-import os
 import streamlit as st
 from datetime import datetime, date, time
+from pathlib import Path
 from tabs.tab_log import add_log
 from utils import get_ticker_display, is_stock
 
 TICKERS    = ["KRW-BTC", "KRW-ETH", "KRW-XRP", "KRW-SOL", "KRW-ADA", "KRW-DOGE"]
 STRATEGIES = ["시간 지정 실행", "목표가 돌파 시 매수", "이평선 상향 돌파 시 매수", "리밸런싱 (비율)"]
 
-_DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "reserve_orders.json")
+_DATA_PATH = Path(__file__).parent.parent / "data" / "reserve_orders.json"
+_LOCK_PATH = Path(__file__).parent.parent / "data" / "reserve_orders.lock"
 
 
 def _load_orders() -> list:
-    if not os.path.exists(_DATA_PATH):
+    if not _DATA_PATH.exists():
         return []
     try:
         with open(_DATA_PATH, encoding="utf-8") as f:
@@ -30,9 +32,15 @@ def _load_orders() -> list:
 
 
 def _save_orders(orders: list):
-    os.makedirs(os.path.dirname(_DATA_PATH), exist_ok=True)
-    with open(_DATA_PATH, "w", encoding="utf-8") as f:
-        json.dump(orders, f, ensure_ascii=False, indent=2)
+    _DATA_PATH.parent.mkdir(exist_ok=True)
+    lock_fp = open(_LOCK_PATH, "w")
+    try:
+        fcntl.flock(lock_fp, fcntl.LOCK_EX)   # 블로킹 락 (VM cron이 끝날 때까지 대기)
+        with open(_DATA_PATH, "w", encoding="utf-8") as f:
+            json.dump(orders, f, ensure_ascii=False, indent=2)
+    finally:
+        fcntl.flock(lock_fp, fcntl.LOCK_UN)
+        lock_fp.close()
 
 
 def _datetime_picker(key_prefix: str):

@@ -62,7 +62,7 @@ def _freshness_badge(minutes: int | None) -> str:
 
 
 def _cron_health() -> str:
-    """reserve.log 마지막 라인 시간으로 cron 헬스 체크."""
+    """reserve.log 마지막 라인 시간으로 cron(1분) 헬스 체크."""
     log_path = os.path.join(LOG_DIR, "reserve.log")
     if not os.path.exists(log_path):
         return "❓ reserve.log 없음"
@@ -86,6 +86,41 @@ def _cron_health() -> str:
         return f"❓ 확인 실패: {e}"
 
 
+def _last_auto_run() -> tuple[str, str]:
+    """trade.log에서 마지막 auto 실행 시각과 다음 예정 시각을 반환.
+    Returns: (last_run_str, next_run_str)
+    """
+    log_path = os.path.join(LOG_DIR, "trade.log")
+    if not os.path.exists(log_path):
+        return "—", "—"
+    try:
+        last_dt = None
+        with open(log_path, encoding="utf-8") as f:
+            for line in f:
+                # "=== run_auto_trade | DRY_RUN=" 라인으로 실제 실행 시각 파악
+                if "=== run_auto_trade" in line:
+                    ts_str = line[:19]
+                    try:
+                        dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+                        last_dt = dt  # UTC 기준 (VM 로컬)
+                    except ValueError:
+                        pass
+        if last_dt is None:
+            return "—", "—"
+        # UTC → KST 변환 후 표시
+        last_kst  = last_dt.replace(tzinfo=timezone.utc).astimezone(KST)
+        next_kst  = last_kst + timedelta(hours=4)
+        last_str  = last_kst.strftime("%m/%d %H:%M")
+        next_str  = next_kst.strftime("%m/%d %H:%M")
+        # 다음 실행이 지나쳤는지 체크
+        now_kst = datetime.now(KST)
+        if next_kst < now_kst:
+            next_str = f"{next_str} (지연 중)"
+        return last_str, next_str
+    except Exception as e:
+        return f"오류: {e}", "—"
+
+
 def render():
     st.header("🖥️ VM 현황 (실시간 연동)")
 
@@ -102,19 +137,13 @@ def render():
     age_min    = _age_minutes(updated_at)
     freshness  = _freshness_badge(age_min)
     cron_ok    = _cron_health()
+    last_auto, next_auto = _last_auto_run()
 
-    # 다음 auto 실행 예정
-    next_run_str = "—"
-    if updated_at:
-        last_dt = _parse_kst(updated_at)
-        if last_dt:
-            next_dt     = last_dt + timedelta(hours=4)
-            next_run_str = next_dt.strftime("%m/%d %H:%M")
-
-    b1, b2, b3 = st.columns(3)
-    b1.metric("전략 데이터",    freshness)
-    b2.metric("cron(1분) 상태", cron_ok)
-    b3.metric("다음 auto 실행", next_run_str)
+    b1, b2, b3, b4 = st.columns(4)
+    b1.metric("전략 데이터",      freshness)
+    b2.metric("cron(1분) 상태",   cron_ok)
+    b3.metric("마지막 auto 실행", last_auto)
+    b4.metric("다음 auto 예정",   next_auto)
 
     st.divider()
 
