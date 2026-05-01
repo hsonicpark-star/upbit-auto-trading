@@ -1,5 +1,12 @@
 [
   {
+    "ts": "2026-05-01 09:00:13 KST",
+    "type": "RUN",
+    "signal": "HOLD",
+    "price": 113820000.0,
+    "dry_run": false
+  },
+  {
     "ts": "2026-05-01 05:00:07 KST",
     "type": "RUN",
     "signal": "HOLD",
