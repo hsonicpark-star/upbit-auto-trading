@@ -1,5 +1,24 @@
 [
   {
+    "ts": "2026-05-18 01:00:14 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 116260000.0,
+    "dry_run": false
+  },
+  {
+    "ts": "2026-05-18 01:00:14 KST",
+    "type": "ORDER",
+    "ticker": "KRW-BTC",
+    "signal": "SELL",
+    "prev_signal": "HOLD",
+    "order": {
+      "status": "SKIP",
+      "reason": "BTC 잔고 없음"
+    },
+    "price": 116260000.0
+  },
+  {
     "ts": "2026-05-17 21:00:06 KST",
     "type": "RUN",
     "signal": "HOLD",
