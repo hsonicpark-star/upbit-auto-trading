@@ -1,5 +1,12 @@
 [
   {
+    "ts": "2026-05-24 21:00:12 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 115510000.0,
+    "dry_run": false
+  },
+  {
     "ts": "2026-05-24 17:00:06 KST",
     "type": "RUN",
     "signal": "SELL",
