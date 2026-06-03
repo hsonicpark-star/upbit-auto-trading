@@ -1,5 +1,12 @@
 [
   {
+    "ts": "2026-06-03 21:00:06 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 99428000.0,
+    "dry_run": false
+  },
+  {
     "ts": "2026-06-03 17:00:07 KST",
     "type": "RUN",
     "signal": "SELL",
