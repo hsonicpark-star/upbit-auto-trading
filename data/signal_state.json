@@ -1,11 +1,11 @@
 {
   "ticker": "KRW-BTC",
   "signal": "HOLD",
-  "reason": "가격(105,151,000) | Donchian범위내 | SMA29(103,561,069) 위",
-  "current_price": 105151000.0,
+  "reason": "가격(105,253,000) | Donchian범위내 | SMA29(104,100,172) 위",
+  "current_price": 105253000.0,
   "donchian_upper": 112445000.0,
   "donchian_lower": 104220000.0,
-  "sma": 103561068.96551724,
-  "updated_at": "2026-09-12 05:00:06 KST",
+  "sma": 104100172.4137931,
+  "updated_at": "2026-09-12 09:00:05 KST",
   "profit_pct": null
 }
