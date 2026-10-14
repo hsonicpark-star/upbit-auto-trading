@@ -1,5 +1,12 @@
 [
   {
+    "ts": "2026-10-14 09:00:07 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 112614000.0,
+    "dry_run": false
+  },
+  {
     "ts": "2026-10-14 05:00:11 KST",
     "type": "RUN",
     "signal": "SELL",
@@ -3546,12 +3553,5 @@
       "reason": "BTC 잔고 없음"
     },
     "price": 93666000.0
-  },
-  {
-    "ts": "2026-07-24 21:00:10 KST",
-    "type": "RUN",
-    "signal": "HOLD",
-    "price": 94883000.0,
-    "dry_run": false
   }
 ]
