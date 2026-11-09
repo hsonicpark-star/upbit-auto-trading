@@ -1,5 +1,12 @@
 [
   {
+    "ts": "2026-11-10 01:00:06 KST",
+    "type": "RUN",
+    "signal": "SELL",
+    "price": 102478000.0,
+    "dry_run": false
+  },
+  {
     "ts": "2026-11-09 21:00:06 KST",
     "type": "RUN",
     "signal": "SELL",
@@ -3520,13 +3527,6 @@
     "type": "RUN",
     "signal": "SELL",
     "price": 89829000.0,
-    "dry_run": false
-  },
-  {
-    "ts": "2026-08-19 13:00:05 KST",
-    "type": "RUN",
-    "signal": "SELL",
-    "price": 89922000.0,
     "dry_run": false
   }
 ]
